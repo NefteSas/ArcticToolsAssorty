@@ -14,12 +14,14 @@ AXES_FIND_RE = r"^(\d+(?:\.\d+)?)[ x](\d+(?:\.\d+)?)$"
 #Проверка на то, что скрипт был запущен как drad & drop
 DEV: bool = False
 
+CONTINUE_NEXT_ITERATION: bool = True
+APPLICATION_SHOULD_CLOSE: bool = False
+
 WAIT_LOOP: bool = True
 AVIABLE_FORMATS: list[tuple[str, str]] = [("Spectral data", '.xlsx')]
 AVIABLE_FORMATS_ONLY_DOT: list[str] = []
 EXCEL_FORMATS: list[str] = ['.xlsx']
 AVIABLE_OUTPUT_FORMAT = ['.xlsx']
-
 for fileformat_index in range(0, len(AVIABLE_FORMATS)): 
     AVIABLE_FORMATS_ONLY_DOT.append(AVIABLE_FORMATS[fileformat_index][1])
 
@@ -49,14 +51,14 @@ def check_file_format(path: str) -> tuple[bool, str]:
     
     return (False, ext)
 
-def do_exit_msg(msg: str):
-    if (not DEV):
-        input(f"{msg} Aborting... \nPress any key to continue")
-        sys.exit()
-    else:
-        print(f"{msg} Aborting... \nPress any key to continue")
-        sys.exit()
-    
+def skip_current_loop(msg: str):
+    global CONTINUE_NEXT_ITERATION
+    input(msg)
+    CONTINUE_NEXT_ITERATION = True
+def close_application(msg: str):
+    global APPLICATION_SHOULD_CLOSE
+    input(msg)
+    APPLICATION_SHOULD_CLOSE = True
 
 def work_with_excel_data(path: str, dimensions: tuple[int, int], axis_X: Optional[tuple[float, float]], axis_Y: Optional[tuple[float,float]]) -> Optional[tuple[dict[str, DataFrame], list[str], list[str]]]:
     choosed_data: Optional[DataFrame] = get_list_file(path)
@@ -75,7 +77,7 @@ def work_with_excel_data(path: str, dimensions: tuple[int, int], axis_X: Optiona
         good_frames+=1
 
     if (good_frames == 0):
-        do_exit_msg("There is no acceptible data! Aborting!")
+        skip_current_loop("There is no acceptible data! Aborting!")
         return
     result: int = 0
     ##Больше бескончных циклов, богу бесконечных циклов
@@ -83,7 +85,7 @@ def work_with_excel_data(path: str, dimensions: tuple[int, int], axis_X: Optiona
         input_str: str = input("""Choose specrtum reconstruction mode:\n1 - [X x Y] -> [X x 1]\n2 - [X x Y] -> [Y x 1]\nType any number, or type 's' to abort.\n""")
         
         if (need_to_abort(input_str.lower())):
-            do_exit_msg("")
+            skip_current_loop("Return")
             return
         elif(input_str.isdigit() and int(input_str) == 1 or  int(input_str) == 2):
             result = int(input_str) - 1
@@ -142,7 +144,7 @@ def get_list_file(path: str) -> Optional[DataFrame]:
         result: str = input(f"Type number 0-{i} for choose list ")
 
         if (result.lower() in ['s', "ы"]):
-            do_exit_msg('Aborting')
+            skip_current_loop('Aborting')
             awaiting_correct_input = False
             return
 
@@ -180,7 +182,7 @@ def get_initial_dimensions() -> Optional[tuple[tuple[int, int], tuple[float, flo
         elif (answer.lower() in ['n','т'] and answer_int is None):
             answer_int = 1
         elif (answer.lower() in ['s', 'ы'] and answer_int is None):
-            do_exit_msg("Terminating\n")
+            close_application("Terminating\n")
             return
         else:
             print(f"{answer} is not recognized. Type 'S' for app termination.")
@@ -194,19 +196,18 @@ def get_initial_dimensions() -> Optional[tuple[tuple[int, int], tuple[float, flo
         path = ask_file_path_via_explorer()
 
         if (path is None): 
-            do_exit_msg("Choose any file")
+            skip_current_loop("Choose any file")
             return
 
         check_result, check_format = check_file_format(path)
 
         if (not check_result):
-            do_exit_msg(f"The file format is wrong. Choose any another from this list: {AVIABLE_FORMATS_ONLY_DOT}")
+            skip_current_loop(f"The file format is wrong. Choose any another from this list: {AVIABLE_FORMATS_ONLY_DOT}")
             return 
 
         needed_dataframe: Optional[DataFrame] = get_list_file(path)
-        dimensions_Y: tuple[float, float] = (0,0)
         if (needed_dataframe is None):
-            do_exit_msg("Aborting")
+            skip_current_loop("Aborting")
             return
 
         print("Stopped reading an example file...")
@@ -221,7 +222,7 @@ def get_initial_dimensions() -> Optional[tuple[tuple[int, int], tuple[float, flo
         input_res: str = input(f"{needed_dataframe.shape[0]} X {needed_dataframe.shape[1]} | TotalPoints: {needed_dataframe.shape[0] * needed_dataframe.shape[1]} | Axes [X from {dimensions_X[0]} to {dimensions_X[1]}] [Y from {dimensions_Y[0]} to {dimensions_Y[1]}] \n is correct? Type 's' if no. Type any symbol if yes.\n")
 
         if (need_to_abort(input_res)):
-            do_exit_msg('Aborting')
+            skip_current_loop('Aborting')
             return
         
 
@@ -236,7 +237,7 @@ def get_initial_dimensions() -> Optional[tuple[tuple[int, int], tuple[float, flo
             while (True):
                 input_str: str = input("Write two dimensions (like: '46 30' or '46x30') or 's' to abort\n")
                 if (need_to_abort(input_str.lower())):
-                    do_exit_msg('Aborting')
+                    skip_current_loop('Aborting')
                     return
                 
                 matched = re.findall(DIM_FIND_RE, input_str)
@@ -253,7 +254,7 @@ def get_initial_dimensions() -> Optional[tuple[tuple[int, int], tuple[float, flo
                 input_str: str = input("Write axis X limits. For example: '100x200' or '200 400'. or 's' to abort\n")
 
                 if (need_to_abort(input_str.lower())):
-                    do_exit_msg('Aborting')
+                    skip_current_loop('Aborting')
                     return
                 
                 matched = re.findall(AXES_FIND_RE, input_str)
@@ -274,7 +275,7 @@ def get_initial_dimensions() -> Optional[tuple[tuple[int, int], tuple[float, flo
                 input_str: str = input("Write axis Y limits. For example: '100x200' or '200 400'. or 's' to abort\n")
 
                 if (need_to_abort(input_str.lower())):
-                    do_exit_msg('Aborting')
+                    skip_current_loop('Aborting')
                     return
                 
                 matched = re.findall(AXES_FIND_RE, input_str)
@@ -304,76 +305,81 @@ def get_initial_dimensions() -> Optional[tuple[tuple[int, int], tuple[float, flo
 
     
 def main() -> None:
-    IS_DRAG_AND_DROPPED: bool = False
-    print("Awaiting an spectra file")
-    
-    result_dimensions = get_initial_dimensions()
+    global APPLICATION_SHOULD_CLOSE
+    global CONTINUE_NEXT_ITERATION
+    while (not APPLICATION_SHOULD_CLOSE):
 
 
-    if (result_dimensions is None):
-        do_exit_msg('Looks like something go wrongly...')
-        return
-    
-    dimensions: Optional[tuple[int, int]]
-    axis_X: Optional[tuple[float,float]]
-    axis_Y: Optional[tuple[float, float]]
+        if (CONTINUE_NEXT_ITERATION):
+            CONTINUE_NEXT_ITERATION = False
+            continue
+        IS_DRAG_AND_DROPPED: bool = False
+        print("Awaiting an spectra file")
+        result_dimensions = get_initial_dimensions()
 
-    dimensions, axis_X, axis_Y = result_dimensions
+        if (result_dimensions is None):
+            continue
+        
+        dimensions: Optional[tuple[int, int]]
+        axis_X: Optional[tuple[float,float]]
+        axis_Y: Optional[tuple[float, float]]
 
-    filepath: Optional[str] =  check_is_drag_and_dropped()
-    if (filepath is None): 
-        filepath = ask_file_path_via_explorer()
-    else:
-        print("Look`s like is drag & dropped...")
-        IS_DRAG_AND_DROPPED = True
-    
-    if (filepath is None): 
-        do_exit_msg("Choosed filepath is null")
-        return
-    
-    check_result: bool
-    check_format: str
+        dimensions, axis_X, axis_Y = result_dimensions
 
-    check_result, check_format = check_file_format(filepath)
+        filepath: Optional[str] =  check_is_drag_and_dropped()
+        if (filepath is None): 
+            filepath = ask_file_path_via_explorer()
+        else:
+            print("Look`s like is drag & dropped...")
+            IS_DRAG_AND_DROPPED = True
+        
+        if (filepath is None): 
+            skip_current_loop("Choosed filepath is null")
+            continue
 
-    if (not check_result):
-        do_exit_msg(f"The file format is wrong. Choose any another like {AVIABLE_FORMATS_ONLY_DOT}")
-        return
-    
-    product_dataframe: Optional[tuple[dict[str,DataFrame], list[str], list[str]]]
-    
+        check_result: bool
+        check_format: str
 
-    if (check_format in EXCEL_FORMATS):
-        product_dataframe = work_with_excel_data(filepath, dimensions,axis_X,axis_Y)
-    else:
-        do_exit_msg(f"At this time files with format {check_format} is not acessible")
-        return
+        check_result, check_format = check_file_format(filepath)
 
-    if (product_dataframe is None): return
-
-    product_dataframe_output: dict[str, DataFrame]
-    axis_X_output: list[str]
-    axis_Y_output: list[str]
-
-    product_dataframe_output, axis_X_output, axis_Y_output = product_dataframe
-    result: str
-
-    if (IS_DRAG_AND_DROPPED):
-        result = save_at_script_path(product_dataframe_output)
-    else:
-        result = save_with_ask(product_dataframe_output)
-
-    print(f"SAVING TO {result}")
-    try:
-        with pd.ExcelWriter(result) as writer:
-            for key, df in product_dataframe_output.items():
-                df.index = axis_Y_output
-                df.to_excel(writer, sheet_name=key, header=axis_X_output)
-    except PermissionError:
-        do_exit_msg("Looks like file to save is currently openned in another program!")
+        if (not check_result):
+            skip_current_loop(f"The file format is wrong. Choose any another like {AVIABLE_FORMATS_ONLY_DOT}")
+            continue
+        
+        product_dataframe: Optional[tuple[dict[str,DataFrame], list[str], list[str]]]
         
 
-    do_exit_msg("DONE")
+        if (check_format in EXCEL_FORMATS):
+            product_dataframe = work_with_excel_data(filepath, dimensions,axis_X,axis_Y)
+        else:
+            skip_current_loop(f"At this time files with format {check_format} is not acessible")
+            return
+
+        if (product_dataframe is None): continue
+
+        product_dataframe_output: dict[str, DataFrame]
+        axis_X_output: list[str]
+        axis_Y_output: list[str]
+
+        product_dataframe_output, axis_X_output, axis_Y_output = product_dataframe
+        result: str
+
+        if (IS_DRAG_AND_DROPPED):
+            result = save_at_script_path(product_dataframe_output)
+        else:
+            result = save_with_ask(product_dataframe_output)
+
+        print(f"SAVING TO {result}")
+        try:
+            with pd.ExcelWriter(result) as writer:
+                for key, df in product_dataframe_output.items():
+                    df.index = axis_Y_output
+                    df.to_excel(writer, sheet_name=key, header=axis_X_output)
+        except PermissionError:
+            skip_current_loop("Looks like file to save is currently openned in another program!")
+            
+
+        print("DONE")
     
 
 
