@@ -113,8 +113,6 @@ def reshape_dataframe(df: DataFrame, list_name: str = "NONE") -> DataFrame:
     final_dataframe = final_dataframe.T
     final_dataframe = pd.concat([new_labels, final_dataframe])
 
-    print(final_dataframe.head())
-
     return final_dataframe
     
 def save_at_script_path(data: DataFrame) -> str:
@@ -173,12 +171,17 @@ def get_list_file(path: str) -> Optional[DataFrame]:
     
 def main() -> None:
     global APPLICATION_SHOULD_CLOSE
+    global MODE_AWAIT_LOOP
+
     while (not APPLICATION_SHOULD_CLOSE):
+        SHEET_MODE = False
         IS_DRAG_AND_DROPPED: bool = False
         
-        input_str: str = input("Press 'S' to close application or type any symbol to continue\n")
+        input_str: str = input("Type 1 for Sheet mode, type any symbol for all-sheets mode. Press 'S' to close application or type any symbol to continue\n")
         if (need_to_abort(input_str)):
             break
+        if (input_str in ['1', '!']):
+            SHEET_MODE = True
         print("Awaiting an spectra file")
         filepath: Optional[str] =  check_is_drag_and_dropped()
         if (filepath is None): 
@@ -202,7 +205,10 @@ def main() -> None:
         
         product_dataframe: Optional[DataFrame]
         if (check_format in EXCEL_FORMATS):
-            product_dataframe = get_list_file(filepath)
+            if (SHEET_MODE):
+                product_dataframe = get_list_file(filepath)
+            else:
+                product_dataframe = work_with_excel_data(filepath)
         else:
             do_exit_msg(f"At this time files with format {check_format} is not acessible")
             continue
@@ -210,7 +216,8 @@ def main() -> None:
         if (product_dataframe is None): continue
 
         #обработка
-        product_dataframe = reshape_dataframe(product_dataframe)
+        if (SHEET_MODE):
+            product_dataframe = reshape_dataframe(product_dataframe)
 
         result: str
 
