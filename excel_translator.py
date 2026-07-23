@@ -80,7 +80,7 @@ def work_with_excel_data(path: str) -> Optional[DataFrame]:
 
     total_data = pd.concat(all_sheets.values(), ignore_index=True)
     try:
-        min_collum,max_collum = int(total_data.columns.min()), int(total_data.columns.max())
+        min_collum,max_collum = cast(int, total_data.columns.astype(float).astype(int).min()), cast(int, total_data.columns.astype(float).astype(int).max())
     except:
         do_exit_msg(f"Looks like data have text data. Remove it, or tranlate to numbers.")
         return None
@@ -90,7 +90,7 @@ def work_with_excel_data(path: str) -> Optional[DataFrame]:
     
     for key, frame in all_sheets.items():
         #Суем векторы в ключи
-        final_dataframe[key]=frame.iloc[:].values.reshape(-1)
+        final_dataframe[key]=frame.iloc[:].values.reshape(-1) / frame.values.sum()
     new_labels: DataFrame = pd.DataFrame(np.arange(min_collum, max_collum, (abs(abs(max_collum) - abs(min_collum)) / final_dataframe.index.size))).T
     
     final_dataframe = final_dataframe.T
